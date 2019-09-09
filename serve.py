@@ -1,17 +1,28 @@
 import socket
 
-#Configuration Parameters
-SERVER = "irc.twitch.tv"
-PORT = 6667
+
 PASS = ""
-BOT = "Connect4Twitch"
 CHANNEL = ""
 OWNER = ""
+SERVER = "irc.twitch.tv"
+PORT = 6667
+BOT = "Connect4Twitch"
 irc = socket.socket()
-irc.connect((SERVER, PORT))
-irc.send(( "PASS " + PASS + "\n" + 
-            "NICK " + BOT + "\n" +
-            "JOIN #" + CHANNEL + "\n").encode())
+
+
+#Configuration Parameters
+def configure(auth, channel):
+    global CHANNEL
+    global PASS
+    global irc
+    global BOT
+    PASS = auth
+    CHANNEL = channel
+    OWNER = channel
+    irc.connect((SERVER, PORT))
+    irc.send(( "PASS " + PASS + "\n" + 
+                "NICK " + BOT + "\n" +
+                "JOIN #" + CHANNEL + "\n").encode())
 
 
 #Join chat using IRC configuration
@@ -28,13 +39,13 @@ def joinchat():
 def loadingComplete(line):
     if ("End of /NAMES list" in line):
         print("Bot has joined " + CHANNEL + "'s Chat")
-        sendMessage(irc, "Connect4 Connected!")
+        sendMessage("Connect4 Connected!")
         return False
     else:
         return True
 
 #Send message to chat
-def sendMessage(irc, message):
+def sendMessage(message):
     messageTemp = "PRIVMSG #" + CHANNEL + " :" + message
     irc.send((messageTemp + "\n").encode())
 
@@ -59,35 +70,54 @@ def console(line):
     else:
         return True
 
-#Filter out non vote messages and store.
+#Filter out non vote messages and store valid entries.
 def filter(username, vote):
     user = username
     vote = vote
     if vote[0:3] == "!c ":
         choice = vote[3:4]
+        try: 
+            i = int(choice)
+            print("converted: " + str(i))
+            #store valid values!!
+            if i in range(1,7):
+                print("Stored: " + str(i))
+
+
+
+        except ValueError:
+            print("failed to convert")
     else:
-        choice = ""
-
-
-# Connect
-joinchat()
+        choice = "Not a choice"
+        print(choice)
 
 # Read chat loop
-while True: 
-    try:
-        readbuffer = irc.recv(1024).decode()
-    except:
-        readbuffer = ""
+#use timer
+def monitorChat():
+    while True: 
+        try:
+            readbuffer = irc.recv(1024).decode()
+        except:
+            readbuffer = ""
 
-    for line in readbuffer.split("\r\n"):
-        if line == "":
-            continue
-        else:
-            user = getUser(line)
-            message = getMessage(line)
-            filter(user, message)
-        if "PING" in line and console(line):
-            msgRep = "PONG tmi.twitch.tv\r\n".encode()
-            irc.send(msgRep)
-            print(msgRep)
-            continue
+        for line in readbuffer.split("\r\n"):
+            if line == "":
+                continue
+            elif "PING" in line and console(line):
+                msgRep = "PONG tmi.twitch.tv\r\n".encode()
+                irc.send(msgRep)
+                print(msgRep)
+                continue
+            else:
+                user = getUser(line)
+                message = getMessage(line)
+                filter(user, message)
+
+# Connect
+configure()
+joinchat()
+monitorChat()
+
+
+
+        
